@@ -1,4 +1,4 @@
-import type { AiStats, ImageItem, LabelPayload, LeaderboardEntry } from './types'
+import type { AiStats, ImageItem, LabelOut, LabelPayload, LeaderboardEntry } from './types'
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 
@@ -25,12 +25,30 @@ export function getImage(id: number | string): Promise<ImageItem> {
   return fetch(`${API_BASE}/images/${id}`).then((r) => handle<ImageItem>(r))
 }
 
-export function createLabel(imageId: number | string, payload: LabelPayload): Promise<unknown> {
+export function createLabel(imageId: number | string, payload: LabelPayload): Promise<LabelOut> {
   return fetch(`${API_BASE}/images/${imageId}/labels`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-  }).then((r) => handle(r))
+  }).then((r) => handle<LabelOut>(r))
+}
+
+export function updateLabel(
+  imageId: number | string,
+  labelId: number,
+  payload: Partial<LabelPayload>,
+): Promise<LabelOut> {
+  return fetch(`${API_BASE}/images/${imageId}/labels/${labelId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }).then((r) => handle<LabelOut>(r))
+}
+
+export function deleteLabel(imageId: number | string, labelId: number): Promise<void> {
+  return fetch(`${API_BASE}/images/${imageId}/labels/${labelId}`, { method: 'DELETE' }).then((r) => {
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+  })
 }
 
 export function getLeaderboard(): Promise<LeaderboardEntry[]> {

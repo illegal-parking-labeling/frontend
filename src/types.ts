@@ -36,6 +36,20 @@ export interface LabelPayload {
   matched_ai: boolean
 }
 
+export interface LabelOut {
+  id: number
+  image_id: number
+  prediction_id: number | null
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  vehicle_type: VehicleType
+  parking_status: ParkingStatus
+  lane_type: LaneType
+  matched_ai: boolean
+}
+
 export interface LeaderboardEntry {
   labeler_name: string
   label_count: number

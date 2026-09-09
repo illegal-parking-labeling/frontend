@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useOutletContext, useParams } from 'react-router-dom'
 import BBoxCanvas, { type CanvasBox } from '../components/BBoxCanvas'
-import { createLabel, getImage, imageUrl } from '../api'
+import { createLabel, deleteLabel, getImage, imageUrl, updateLabel } from '../api'
 import type { AppContext } from '../App'
 import type { ImageItem, LaneType, ParkingStatus, VehicleType } from '../types'
 
 interface DraftLabel {
   id: string
+  labelId: number | null
   predictionId: number | null
   x1: number
   y1: number
@@ -53,6 +54,7 @@ export default function LabelPage() {
       setDrafts(
         img.predictions.map((p) => ({
           id: `pred-${p.id}`,
+          labelId: null,
           predictionId: p.id,
           x1: p.x1,
           y1: p.y1,
@@ -82,6 +84,7 @@ export default function LabelPage() {
     const id = `manual-${crypto.randomUUID()}`
     const draft: DraftLabel = {
       id,
+      labelId: null,
       predictionId: null,
       ...box,
       vehicleType: 'car',
@@ -106,20 +109,39 @@ export default function LabelPage() {
       return
     }
     setError(null)
+    const payload = {
+      prediction_id: draft.predictionId,
+      labeler_name: labelerName.trim(),
+      x1: draft.x1,
+      y1: draft.y1,
+      x2: draft.x2,
+      y2: draft.y2,
+      vehicle_type: draft.vehicleType,
+      parking_status: draft.parkingStatus,
+      lane_type: draft.laneType,
+      matched_ai: draft.predictionId !== null && draft.vehicleType === draft.aiClassName,
+    }
     try {
-      await createLabel(image.id, {
-        prediction_id: draft.predictionId,
-        labeler_name: labelerName.trim(),
-        x1: draft.x1,
-        y1: draft.y1,
-        x2: draft.x2,
-        y2: draft.y2,
-        vehicle_type: draft.vehicleType,
-        parking_status: draft.parkingStatus,
-        lane_type: draft.laneType,
-        matched_ai: draft.predictionId !== null && draft.vehicleType === draft.aiClassName,
-      })
-      setDrafts((prev) => prev.map((d) => (d.id === draft.id ? { ...d, saved: true } : d)))
+      if (draft.labelId != null) {
+        await updateLabel(image.id, draft.labelId, payload)
+        setDrafts((prev) => prev.map((d) => (d.id === draft.id ? { ...d, saved: true } : d)))
+      } else {
+        const created = await createLabel(image.id, payload)
+        setDrafts((prev) => prev.map((d) => (d.id === draft.id ? { ...d, saved: true, labelId: created.id } : d)))
+      }
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
+  async function handleDelete(draft: DraftLabel) {
+    if (!image) return
+    setError(null)
+    try {
+      if (draft.labelId != null) {
+        await deleteLabel(image.id, draft.labelId)
+      }
+      removeDraft(draft.id)
     } catch (e) {
       setError(String(e))
     }
@@ -232,13 +254,11 @@ export default function LabelPage() {
 
               <div className="draft-actions">
                 <button type="button" onClick={() => handleSave(draft)} disabled={draft.saved}>
-                  {draft.saved ? '저장됨' : '이 라벨 저장'}
+                  {draft.saved ? '저장됨' : draft.labelId != null ? '수정 저장' : '이 라벨 저장'}
                 </button>
-                {!draft.saved && draft.predictionId === null && (
-                  <button type="button" className="ghost" onClick={() => removeDraft(draft.id)}>
-                    삭제
-                  </button>
-                )}
+                <button type="button" className="ghost" onClick={() => handleDelete(draft)}>
+                  삭제
+                </button>
               </div>
             </div>
           ))}
