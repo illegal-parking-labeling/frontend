@@ -47,7 +47,7 @@ export default function UploadListPage() {
     <div className="page">
       <h1>불법 주정차 라벨링</h1>
 
-      <div className="upload-box">
+      <label className="dropzone">
         <input
           ref={fileInputRef}
           type="file"
@@ -56,17 +56,33 @@ export default function UploadListPage() {
           onChange={(e) => handleFiles(e.target.files)}
           disabled={uploading}
         />
-        {uploading && <span>업로드 중... (첫 업로드는 AI 모델 로딩 때문에 다소 걸릴 수 있어요)</span>}
-        {error && <p className="error">{error}</p>}
-      </div>
+        <span className="dropzone-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 16V4M12 4l-4 4M12 4l4 4" />
+            <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+          </svg>
+        </span>
+        <span className="dropzone-text">
+          <strong>{uploading ? '업로드 중...' : '사진을 클릭해서 올리기'}</strong>
+          <small>
+            {uploading ? '첫 업로드는 AI 모델 로딩 때문에 다소 걸릴 수 있어요' : 'JPG, PNG 지원 · 여러 장 한번에 가능'}
+          </small>
+        </span>
+      </label>
+      {error && <p className="error">{error}</p>}
 
       <div className="image-grid">
         {images.map((img) => (
           <button key={img.id} type="button" className="image-card" onClick={() => navigate(`/label/${img.id}`)}>
-            <img src={imageUrl(img.filename)} alt={img.filename} />
+            <div className="image-card-thumb">
+              <img src={imageUrl(img.filename)} alt={img.filename} />
+            </div>
             <div className="image-card-meta">
-              <span className={`status-badge status-${img.status}`}>{STATUS_LABEL[img.status]}</span>
-              <span>{img.predictions.length}개 예측</span>
+              <span className={`status-badge status-${img.status}`}>
+                <span className="status-dot" />
+                {STATUS_LABEL[img.status]}
+              </span>
+              <span className="image-card-count">{img.predictions.length}개 예측</span>
             </div>
           </button>
         ))}

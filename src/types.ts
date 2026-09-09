@@ -1,6 +1,6 @@
 export type ImageStatus = 'pending' | 'predicted' | 'labeled'
-export type VehicleType = 'car' | 'truck' | 'motorcycle'
-export type ParkingStatus = 'normal' | 'illegal'
+export type VehicleType = 'car' | 'truck' | 'bus' | 'motorcycle'
+export type ParkingStatus = 'normal' | 'illegal' | 'moving'
 export type LaneType = 'sidewalk' | 'crosswalk' | 'bus_only' | 'none'
 
 export interface Prediction {

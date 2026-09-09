@@ -25,6 +25,10 @@ export function getImage(id: number | string): Promise<ImageItem> {
   return fetch(`${API_BASE}/images/${id}`).then((r) => handle<ImageItem>(r))
 }
 
+export function listLabels(imageId: number | string): Promise<LabelOut[]> {
+  return fetch(`${API_BASE}/images/${imageId}/labels`).then((r) => handle<LabelOut[]>(r))
+}
+
 export function createLabel(imageId: number | string, payload: LabelPayload): Promise<LabelOut> {
   return fetch(`${API_BASE}/images/${imageId}/labels`, {
     method: 'POST',

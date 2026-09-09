@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useOutletContext, useParams } from 'react-router-dom'
 import BBoxCanvas, { type CanvasBox } from '../components/BBoxCanvas'
-import { createLabel, deleteLabel, getImage, imageUrl, updateLabel } from '../api'
+import { createLabel, deleteLabel, getImage, imageUrl, listLabels, updateLabel } from '../api'
 import type { AppContext } from '../App'
 import type { ImageItem, LaneType, ParkingStatus, VehicleType } from '../types'
 
@@ -24,12 +24,14 @@ interface DraftLabel {
 const VEHICLE_OPTIONS: { value: VehicleType; label: string }[] = [
   { value: 'car', label: '승용차' },
   { value: 'truck', label: '트럭' },
+  { value: 'bus', label: '버스' },
   { value: 'motorcycle', label: '오토바이' },
 ]
 
 const PARKING_OPTIONS: { value: ParkingStatus; label: string }[] = [
-  { value: 'normal', label: '정상' },
-  { value: 'illegal', label: '불법' },
+  { value: 'normal', label: '정상주차' },
+  { value: 'illegal', label: '불법주차' },
+  { value: 'moving', label: '주행중(주차 아님)' },
 ]
 
 const LANE_OPTIONS: { value: LaneType; label: string }[] = [
@@ -49,25 +51,49 @@ export default function LabelPage() {
 
   useEffect(() => {
     if (!imageId) return
-    getImage(imageId).then((img) => {
+    Promise.all([getImage(imageId), listLabels(imageId)]).then(([img, labels]) => {
       setImage(img)
-      setDrafts(
-        img.predictions.map((p) => ({
+
+      const labelByPrediction = new Map(
+        labels.filter((l) => l.prediction_id != null).map((l) => [l.prediction_id, l]),
+      )
+      const predictionDrafts: DraftLabel[] = img.predictions.map((p) => {
+        const existing = labelByPrediction.get(p.id)
+        return {
           id: `pred-${p.id}`,
-          labelId: null,
+          labelId: existing?.id ?? null,
           predictionId: p.id,
-          x1: p.x1,
-          y1: p.y1,
-          x2: p.x2,
-          y2: p.y2,
-          vehicleType: p.class_name,
-          parkingStatus: '',
-          laneType: 'none',
+          x1: existing?.x1 ?? p.x1,
+          y1: existing?.y1 ?? p.y1,
+          x2: existing?.x2 ?? p.x2,
+          y2: existing?.y2 ?? p.y2,
+          vehicleType: existing?.vehicle_type ?? p.class_name,
+          parkingStatus: existing?.parking_status ?? '',
+          laneType: existing?.lane_type ?? 'none',
           aiClassName: p.class_name,
           aiConfidence: p.confidence,
-          saved: false,
-        })),
-      )
+          saved: existing != null,
+        }
+      })
+      const manualDrafts: DraftLabel[] = labels
+        .filter((l) => l.prediction_id == null)
+        .map((l) => ({
+          id: `label-${l.id}`,
+          labelId: l.id,
+          predictionId: null,
+          x1: l.x1,
+          y1: l.y1,
+          x2: l.x2,
+          y2: l.y2,
+          vehicleType: l.vehicle_type,
+          parkingStatus: l.parking_status,
+          laneType: l.lane_type,
+          aiClassName: null,
+          aiConfidence: null,
+          saved: true,
+        }))
+
+      setDrafts([...predictionDrafts, ...manualDrafts])
     })
   }, [imageId])
 
@@ -164,13 +190,15 @@ export default function LabelPage() {
     label: `${VEHICLE_OPTIONS.find((o) => o.value === d.vehicleType)?.label ?? d.vehicleType}${
       d.aiConfidence != null ? ` ${(d.aiConfidence * 100).toFixed(0)}%` : ' (직접 추가)'
     }${d.saved ? ' ✓' : ''}`,
-    color: d.saved ? '#34c759' : d.aiClassName ? '#ff9500' : '#007aff',
+    color: d.saved ? '#1f9d55' : d.aiClassName ? '#ff9500' : '#3a5cf0',
   }))
 
   return (
     <div className="page label-page">
       <div className="label-page-header">
-        <Link to="/">&larr; 목록으로</Link>
+        <Link to="/" className="back-link">
+          &larr; 목록으로
+        </Link>
         <h1>{image.filename}</h1>
       </div>
 
@@ -210,14 +238,14 @@ export default function LabelPage() {
               <fieldset>
                 <legend>차종</legend>
                 {VEHICLE_OPTIONS.map((opt) => (
-                  <label key={opt.value}>
+                  <label key={opt.value} className="radio-pill">
                     <input
                       type="radio"
                       name={`vehicle-${draft.id}`}
                       checked={draft.vehicleType === opt.value}
                       onChange={() => updateDraft(draft.id, { vehicleType: opt.value })}
                     />
-                    {opt.label}
+                    <span>{opt.label}</span>
                   </label>
                 ))}
               </fieldset>
@@ -225,14 +253,14 @@ export default function LabelPage() {
               <fieldset>
                 <legend>주차 상태</legend>
                 {PARKING_OPTIONS.map((opt) => (
-                  <label key={opt.value}>
+                  <label key={opt.value} className="radio-pill">
                     <input
                       type="radio"
                       name={`parking-${draft.id}`}
                       checked={draft.parkingStatus === opt.value}
                       onChange={() => updateDraft(draft.id, { parkingStatus: opt.value })}
                     />
-                    {opt.label}
+                    <span>{opt.label}</span>
                   </label>
                 ))}
               </fieldset>
@@ -240,14 +268,14 @@ export default function LabelPage() {
               <fieldset>
                 <legend>차선</legend>
                 {LANE_OPTIONS.map((opt) => (
-                  <label key={opt.value}>
+                  <label key={opt.value} className="radio-pill">
                     <input
                       type="radio"
                       name={`lane-${draft.id}`}
                       checked={draft.laneType === opt.value}
                       onChange={() => updateDraft(draft.id, { laneType: opt.value })}
                     />
-                    {opt.label}
+                    <span>{opt.label}</span>
                   </label>
                 ))}
               </fieldset>
